@@ -7,14 +7,7 @@ agents working beside them. Tasks, docs, plans and API proofs are Markdown
 files in git. Every change is one commit. One local binary serves the
 terminal and the browser: no server to run, no account to create.
 
-https://github.com/user-attachments/assets/9584d803-032e-406c-bd07-8b27d5a93692
-
-<details>
-<summary><b>Watch the full five-minute tour</b></summary>
-
 https://github.com/user-attachments/assets/c0d8a26e-35c0-49c5-971b-5082a2fe9d86
-
-</details>
 
 This repository publishes DIT's releases: the macOS app, the command-line
 binaries and the installer. It holds no source code.
