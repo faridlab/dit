@@ -209,3 +209,8 @@ brew upgrade --cask dit
 ---
 
 **#DIT · #weDitit** — Plan it. Prove it. Done in Git.
+
+## Report a problem or ask for a feature
+
+Open an [issue](https://github.com/faridlab/dit/issues/new/choose) here. Include
+`dit --version` and how you installed DIT.
