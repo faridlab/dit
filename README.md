@@ -336,6 +336,12 @@ WantedBy=multi-user.target
 
 Leave `--init` out of the service: it only works while nobody has an account.
 
+**Adding more workspaces** needs no terminal: in DIT, **Settings → Workspaces
+→ Show the deploy key** (add it to the repository, with write access), then
+**Add workspace** with its name and `git@github.com:acme/another.git`. The
+list there says when a workspace's sync needs attention. Step 2 above is the
+same thing from a terminal, for the first one.
+
 **6. Invite the team.** In DIT, **Settings → People → Make invite link**,
 choose a role, and send the link. *Viewers* read everything, *members* work on
 issues and docs, *admins* also manage people. A link works once, for 7 days.
