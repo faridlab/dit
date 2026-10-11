@@ -185,8 +185,10 @@ This installs `DIT.app` and puts `dit` on your `PATH`.
 curl -fsSL https://github.com/faridlab/dit/releases/latest/download/install.sh | bash
 ```
 
-The installer downloads the release binary for your platform and checks its
-SHA-256 digest.
+The installer downloads the release binary for your platform and installs it
+only if it matches the SHA-256 published beside it. On Linux it picks the
+glibc build where glibc is 2.39 or newer, and the static build everywhere
+else.
 
 **By hand:** download the archive for your platform from the
 [latest release](https://github.com/faridlab/dit/releases/latest), check it
@@ -196,18 +198,20 @@ against its `.sha256` file, and put `dit` on your `PATH`.
 |---|---|
 | macOS, Apple silicon | `dit-aarch64-apple-darwin.tar.gz` |
 | macOS, Intel | `dit-x86_64-apple-darwin.tar.gz` |
-| Linux, x86_64 | `dit-x86_64-unknown-linux-gnu.tar.gz` |
-| Linux, arm64 | `dit-aarch64-unknown-linux-gnu.tar.gz` |
+| Linux, x86_64, glibc 2.39+ | `dit-x86_64-unknown-linux-gnu.tar.gz` |
+| Linux, arm64, glibc 2.39+ | `dit-aarch64-unknown-linux-gnu.tar.gz` |
+| Linux, x86_64, any (static) | `dit-x86_64-unknown-linux-musl.tar.gz` |
+| Linux, arm64, any (static) | `dit-aarch64-unknown-linux-musl.tar.gz` |
 | macOS app | `DIT-macos.zip` |
 
 ### On Linux
 
 **Requirements**
 
-- glibc 2.39 or newer: Ubuntu 24.04, Debian 13, Fedora 40, or later. On an
-  older distribution `dit` stops at start with ``version `GLIBC_2.39' not
-  found``. There is no build for older glibc yet.
-- git 2.28 or newer.
+- Any distribution. The glibc builds need glibc 2.39 (Ubuntu 24.04,
+  Debian 13, Fedora 40, or later); everywhere else — Ubuntu 22.04, Debian 12,
+  Alpine — the installer picks the static build, which has no such need.
+- git 2.28 or newer, and `bash` and `curl` for the installer.
 
 **Where it goes.** The installer puts `dit` in `~/.cargo/bin` if that folder
 exists, otherwise in `~/.local/bin`, and tells you when that folder is not on
@@ -253,6 +257,99 @@ export DIT_ME=<you>-<machine>        # one name per machine, e.g. farid-mac and 
 
 A separate `DIT_ME` per machine matters: claims and "what changed while I
 waited" both go by that name.
+
+## Run a team server
+
+One DIT for a whole team, on a server: everyone opens a URL and signs in, and
+every change is saved in their name — product people, designers and clients
+never install anything or see git. Developers and their AI sessions keep
+working from their own clones; the server is one more clone that syncs with
+your team's GitHub or GitLab.
+
+You need a Linux server, a domain name pointing at it, and
+[Caddy](https://caddyserver.com) for HTTPS. The steps below are for
+Debian or Ubuntu.
+
+**1. A user for DIT, and DIT for that user.**
+
+```bash
+sudo apt-get install -y git curl
+sudo useradd --system --create-home --home-dir /var/lib/dit --shell /usr/sbin/nologin dit
+curl -fsSL https://github.com/faridlab/dit/releases/latest/download/install.sh -o /tmp/install-dit.sh
+sudo -H -u dit bash /tmp/install-dit.sh          # installs /var/lib/dit/.local/bin/dit
+```
+
+**2. The workspace, from your forge.** Give the server its own key, add it
+to the repository as a deploy key *with write access*, then clone:
+
+```bash
+sudo -H -u dit mkdir -p /var/lib/dit/.ssh /var/lib/dit/workspaces
+sudo -H -u dit ssh-keygen -t ed25519 -N "" -f /var/lib/dit/.ssh/id_ed25519
+sudo cat /var/lib/dit/.ssh/id_ed25519.pub         # paste as a deploy key
+sudo -H -u dit git clone git@github.com:acme/plan.git /var/lib/dit/workspaces/plan
+sudo -H -u dit bash -c 'cd ~/workspaces/plan && ~/.local/bin/dit install-driver &&
+  ~/.local/bin/dit workspace add . --name plan && ~/.local/bin/dit workspace sync plan on'
+```
+
+**3. HTTPS with Caddy.** In `/etc/caddy/Caddyfile`, then `sudo systemctl reload caddy`:
+
+```
+dit.example.com {
+	reverse_proxy 127.0.0.1:7700
+}
+```
+
+**4. The first admin.** Run the server once by hand with `--init`; it prints a
+link, valid for an hour, that makes you its admin. Open it, then stop the
+server with Ctrl-C.
+
+```bash
+sudo -H -u dit /var/lib/dit/.local/bin/dit serve --public-url https://dit.example.com \
+  --root /var/lib/dit/workspaces --init
+```
+
+**5. Keep it running.** `/etc/systemd/system/dit.service`, then
+`sudo systemctl enable --now dit`:
+
+```ini
+[Unit]
+Description=DIT team server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=dit
+Group=dit
+Environment=HOME=/var/lib/dit
+WorkingDirectory=/var/lib/dit
+ExecStart=/var/lib/dit/.local/bin/dit serve --public-url https://dit.example.com --root /var/lib/dit/workspaces
+Restart=on-failure
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/dit
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Leave `--init` out of the service: it only works while nobody has an account.
+
+**6. Invite the team.** In DIT, **Settings → People → Make invite link**,
+choose a role, and send the link. *Viewers* read everything, *members* work on
+issues and docs, *admins* also manage people. A link works once, for 7 days.
+
+A team server is deliberately less capable than DIT on your own machine: it
+never sends Morse requests (prove scenarios from your machine with
+`dit morse sync`), keeps no one's environment secrets, and reads only its
+workspaces' own repositories.
+
+**Upgrade:**
+
+```bash
+sudo -H -u dit /var/lib/dit/.local/bin/dit upgrade && sudo systemctl restart dit
+```
 
 ## Update
 
