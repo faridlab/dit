@@ -148,14 +148,15 @@ an answer that misses part of the result cannot win, however small.</sub>
 **Git-native**
 - A merge driver that merges two edits to one issue field by field. Both
   changes land; only a real clash asks a person.
-- `dit sync` fetches, rebases and pushes.
+- `dit sync` fetches, rebases and pushes. Switch on background sync and every
+  machine you work from stays current on its own.
 - `dit doctor` checks everything that silently breaks a workspace.
 - Works offline. Every clone is the whole workspace.
 
 **One binary**
 - The terminal and the browser work on the same workspace at once.
 - `dit ui --all` serves every workspace on your machine; on macOS a menu bar
-  app starts it.
+  app starts it, on Linux you run it from a terminal.
 - The browser UI stays on `127.0.0.1` and opens with a per-session token.
 
 ## Quick start
@@ -198,6 +199,60 @@ against its `.sha256` file, and put `dit` on your `PATH`.
 | Linux, x86_64 | `dit-x86_64-unknown-linux-gnu.tar.gz` |
 | Linux, arm64 | `dit-aarch64-unknown-linux-gnu.tar.gz` |
 | macOS app | `DIT-macos.zip` |
+
+### On Linux
+
+**Requirements**
+
+- glibc 2.39 or newer: Ubuntu 24.04, Debian 13, Fedora 40, or later. On an
+  older distribution `dit` stops at start with ``version `GLIBC_2.39' not
+  found``. There is no build for older glibc yet.
+- git 2.28 or newer.
+
+**Where it goes.** The installer puts `dit` in `~/.cargo/bin` if that folder
+exists, otherwise in `~/.local/bin`, and tells you when that folder is not on
+your `PATH`.
+
+**Running the browser UI.** There is no menu bar app on Linux. Run the server
+from a terminal and leave it open:
+
+```bash
+dit ui --all        # every workspace on this machine, at http://127.0.0.1:7700
+```
+
+It opens your browser with `xdg-open`. Stop it with Ctrl-C. To keep a workspace
+synced without the UI, run `dit sync --watch` instead (see below).
+
+**Notifications.** In the browser, open **Settings → Notifications → Notify
+me**. While the DIT tab is in the background, you are told when another
+session or machine finishes an issue, makes one ready to pick, or comments.
+
+## Work from more than one machine
+
+A laptop and a desktop, or a Mac and a Linux PC, can share one workspace.
+Git carries everything: no extra server, no account. Push the workspace to
+any git remote you both can reach, then on each machine:
+
+```bash
+git clone <your-workspace-remote> && cd <workspace>
+dit install-driver                   # register the merge driver; sync refuses to run without it
+dit workspace add . --name <name>
+dit workspace sync <name> on         # sync in the background while dit ui runs
+export DIT_ME=<you>-<machine>        # one name per machine, e.g. farid-mac and farid-pc
+```
+
+- **Background sync** pulls every 15 seconds and pushes a few seconds after
+  each commit, for as long as `dit ui` (or the macOS menu bar app) runs. On a
+  machine without the UI, `dit sync --watch` does the same in a terminal. It
+  is switched on per machine, never by the repository.
+- **AI sessions don't poll.** `dit wait ready --lane <lane>` or
+  `dit wait '#12'` blocks until that holds, then prints what other sessions
+  finished and what became ready. Run it in the background.
+- **When something stops it**, such as an uncommitted file or a merge
+  conflict, `dit doctor` says what and where.
+
+A separate `DIT_ME` per machine matters: claims and "what changed while I
+waited" both go by that name.
 
 ## Update
 
